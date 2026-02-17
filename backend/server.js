@@ -12,12 +12,54 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Ruta raíz
+// ==========================
+// FUNCIONES AUXILIARES
+// ==========================
+
+function isNewsletter(emailText) {
+  const spamWords = [
+    "unsubscribe",
+    "manage preferences",
+    "view in browser",
+    "click here",
+    "no-reply",
+    "dashboard",
+    "cron jobs",
+    "background workers"
+  ];
+
+  return spamWords.some(word =>
+    emailText.toLowerCase().includes(word)
+  );
+}
+
+function cleanEmail(emailText) {
+  return emailText
+    .split("\n")
+    .filter(line =>
+      !line.toLowerCase().includes("unsubscribe") &&
+      !line.toLowerCase().includes("manage preferences") &&
+      !line.toLowerCase().includes("render, inc") &&
+      !line.toLowerCase().includes("click") &&
+      !line.toLowerCase().includes("dashboard") &&
+      !line.toLowerCase().includes("hubspot") &&
+      !line.toLowerCase().includes("http")
+    )
+    .join("\n");
+}
+
+function decodeBase64(data) {
+  return Buffer.from(data, 'base64').toString('utf-8');
+}
+
+// ==========================
+// RUTAS
+// ==========================
+
 app.get("/", (req, res) => {
   res.send("Smart Reply AI backend corriendo");
 });
 
-// Health check para deploy en Render, Railway, Docker, etc
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
@@ -47,12 +89,6 @@ app.get("/test-gmail", async (req, res) => {
   }
 });
 
-function decodeBase64(data) {
-  return Buffer.from(data, 'base64')
-    .toString('utf-8');
-}
-
-
 // Obtener últimos correos
 app.get("/emails", async (req, res) => {
   try {
@@ -65,8 +101,6 @@ app.get("/emails", async (req, res) => {
     });
 
     const messages = list.data.messages || [];
-
-    // Traer detalle de cada correo
     const fullMessages = [];
 
     for (const m of messages) {
@@ -74,27 +108,27 @@ app.get("/emails", async (req, res) => {
         userId: "me",
         id: m.id
       });
+
       let body = "";
 
-const parts = msg.data.payload.parts;
+      const parts = msg.data.payload.parts;
 
-if (parts) {
-  const part = parts.find(p => p.mimeType === "text/plain");
+      if (parts) {
+        const part = parts.find(p => p.mimeType === "text/plain");
 
-  if (part && part.body.data) {
-    body = decodeBase64(
-      part.body.data.replace(/-/g, '+').replace(/_/g, '/')
-    );
-  }
-}
+        if (part && part.body.data) {
+          body = decodeBase64(
+            part.body.data.replace(/-/g, '+').replace(/_/g, '/')
+          );
+        }
+      }
 
-
-       const headers = msg.data.payload.headers;
+      const headers = msg.data.payload.headers;
 
       const from = headers.find(h => h.name === "From")?.value;
       const subject = headers.find(h => h.name === "Subject")?.value;
 
-        fullMessages.push({
+      fullMessages.push({
         id: m.id,
         from,
         subject,
@@ -110,49 +144,41 @@ if (parts) {
   }
 });
 
-//Servicio de ia
+// ==========================
+// IA SERVICE
+// ==========================
+
 app.post("/generate-reply", async (req, res) => {
   try {
-    const { emailText } = req.body;
 
-    const reply = await generateReply(emailText);
+    const { emailText, from } = req.body;
 
-    res.json({ reply });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error generando respuesta");
-  }
-});
-
-
-app.get("/generate-reply", async (req, res) => {
-  try {
-    const auth = await authorize();
-    const gmail = google.gmail({ version: "v1", auth });
-
-    // 1. Obtener correos
-    const r = await gmail.users.messages.list({
-      userId: "me",
-      maxResults: 1
-    });
-
-    if (!r.data.messages || r.data.messages.length === 0) {
-      return res.send("No hay correos");
+    // 🚫 FILTRO POR REMITENTE
+    if (
+      from &&
+  (
+      from.toLowerCase().includes("facebook") ||
+      from.toLowerCase().includes("no-reply") ||
+      from.toLowerCase().includes("notification") ||
+      from.toLowerCase().includes("noreply") ||
+      from.toLowerCase().includes("newsletter")
+    )
+    ) {
+      return res.json({
+        reply: "⚠️ Este correo es automático. No se recomienda responder."
+      });
     }
 
-    const messageId = r.data.messages[0].id;
+    // 🚫 FILTRO POR CONTENIDO
+    if (isNewsletter(emailText)) {
+      return res.json({
+        reply: "⚠️ Este correo parece promocional o automático."
+      });
+    }
 
-    // 2. Obtener contenido del correo
-    const msg = await gmail.users.messages.get({
-      userId: "me",
-      id: messageId
-    });
+    const cleanedEmail = cleanEmail(emailText);
 
-    const body =
-      msg.data.snippet || "Correo sin contenido";
-
-    // 3. Enviar a la IA
-    const reply = await generateReply(body);
+    const reply = await generateReply(cleanedEmail);
 
     res.json({ reply });
 
@@ -162,79 +188,13 @@ app.get("/generate-reply", async (req, res) => {
   }
 });
 
-app.get("/generate-reply", async (req, res) => {
-  try {
-    const auth = await authorize();
-    const gmail = google.gmail({ version: "v1", auth });
 
-    // 1. Obtener correos
-    const r = await gmail.users.messages.list({
-      userId: "me",
-      maxResults: 1
-    });
+// ==========================
+// PUERTO
+// ==========================
 
-    if (!r.data.messages || r.data.messages.length === 0) {
-      return res.send("No hay correos");
-    }
-
-    const messageId = r.data.messages[0].id;
-
-    // 2. Obtener contenido del correo
-    const msg = await gmail.users.messages.get({
-      userId: "me",
-      id: messageId
-    });
-
-    const body =
-      msg.data.snippet || "Correo sin contenido";
-
-    // 3. Enviar a la IA
-    const reply = await generateReply(body);
-
-    res.json({ reply });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error generando respuesta");
-  }
-});
-
-app.get("/latest-email", async (req, res) => {
-  try {
-    const auth = await authorize();
-    const gmail = google.gmail({ version: "v1", auth });
-
-    const r = await gmail.users.messages.list({
-      userId: "me",
-      maxResults: 1
-    });
-
-    if (!r.data.messages || r.data.messages.length === 0) {
-      return res.json({ email: "No hay correos" });
-    }
-
-    const messageId = r.data.messages[0].id;
-
-    const msg = await gmail.users.messages.get({
-      userId: "me",
-      id: messageId
-    });
-
-    const body = msg.data.snippet || "Correo sin contenido";
-
-    res.json({ email: body });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error leyendo correo");
-  }
-});
-
-
-// Puerto
 const PORT = process.env.PORT || 4000;
 
-// Arranque del servidor
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);
 });
