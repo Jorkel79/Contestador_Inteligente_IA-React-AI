@@ -69,10 +69,16 @@ app.get("/emails", async (req, res) => {
         id: m.id
       });
 
-      fullMessages.push({
+       const headers = msg.data.payload.headers;
+
+      const from = headers.find(h => h.name === "From")?.value;
+      const subject = headers.find(h => h.name === "Subject")?.value;
+
+        fullMessages.push({
         id: m.id,
         snippet: msg.data.snippet,
-        headers: msg.data.payload.headers
+        from,
+        subject
       });
     }
 
@@ -172,6 +178,38 @@ app.get("/generate-reply", async (req, res) => {
     res.status(500).send("Error generando respuesta");
   }
 });
+
+app.get("/latest-email", async (req, res) => {
+  try {
+    const auth = await authorize();
+    const gmail = google.gmail({ version: "v1", auth });
+
+    const r = await gmail.users.messages.list({
+      userId: "me",
+      maxResults: 1
+    });
+
+    if (!r.data.messages || r.data.messages.length === 0) {
+      return res.json({ email: "No hay correos" });
+    }
+
+    const messageId = r.data.messages[0].id;
+
+    const msg = await gmail.users.messages.get({
+      userId: "me",
+      id: messageId
+    });
+
+    const body = msg.data.snippet || "Correo sin contenido";
+
+    res.json({ email: body });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error leyendo correo");
+  }
+});
+
 
 // Puerto
 const PORT = process.env.PORT || 4000;
