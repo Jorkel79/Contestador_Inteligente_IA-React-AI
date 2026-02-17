@@ -47,6 +47,12 @@ app.get("/test-gmail", async (req, res) => {
   }
 });
 
+function decodeBase64(data) {
+  return Buffer.from(data, 'base64')
+    .toString('utf-8');
+}
+
+
 // Obtener últimos correos
 app.get("/emails", async (req, res) => {
   try {
@@ -68,6 +74,20 @@ app.get("/emails", async (req, res) => {
         userId: "me",
         id: m.id
       });
+      let body = "";
+
+const parts = msg.data.payload.parts;
+
+if (parts) {
+  const part = parts.find(p => p.mimeType === "text/plain");
+
+  if (part && part.body.data) {
+    body = decodeBase64(
+      part.body.data.replace(/-/g, '+').replace(/_/g, '/')
+    );
+  }
+}
+
 
        const headers = msg.data.payload.headers;
 
@@ -76,9 +96,9 @@ app.get("/emails", async (req, res) => {
 
         fullMessages.push({
         id: m.id,
-        snippet: msg.data.snippet,
         from,
-        subject
+        subject,
+        body
       });
     }
 

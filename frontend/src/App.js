@@ -14,7 +14,7 @@ function App() {
         De: ${data[0].from}
         Asunto: ${data[0].subject}
 
-        ${data[0].snippet}
+        ${data[0].body}
       `);
 
     }
