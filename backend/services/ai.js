@@ -21,8 +21,7 @@ async function generateReply(emailText) {
 - No agregues datos que no estén en el correo
 
   Siempre termina el correo con:
-  Saludos,
-  Jorge`
+  Saludos,`
       },
       {
         role: "user",

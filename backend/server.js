@@ -153,7 +153,7 @@ app.post("/generate-reply", async (req, res) => {
 
     const { emailText, from } = req.body;
 
-    // 🚫 FILTRO POR REMITENTE
+    // FILTRO POR REMITENTE
     if (
       from &&
   (
@@ -165,14 +165,14 @@ app.post("/generate-reply", async (req, res) => {
     )
     ) {
       return res.json({
-        reply: "⚠️ Este correo es automático. No se recomienda responder."
+        reply: "Este correo es automático. No se recomienda responder."
       });
     }
 
-    // 🚫 FILTRO POR CONTENIDO
+    // FILTRO POR CONTENIDO
     if (isNewsletter(emailText)) {
       return res.json({
-        reply: "⚠️ Este correo parece promocional o automático."
+        reply: "Este correo parece promocional o automático."
       });
     }
 
