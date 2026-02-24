@@ -18,6 +18,8 @@ const Reply = require("./models/Reply");
 
 const Usage = require("./models/Usage");
 
+require("./jobs/resetUsage");
+
 // Middlewares
 app.use(cors());
 app.use(express.json());

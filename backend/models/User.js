@@ -4,8 +4,8 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   plan: {
-    type: String,
-    default: "free"
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Plan"
   },
   repliesToday: {
     type: Number,
