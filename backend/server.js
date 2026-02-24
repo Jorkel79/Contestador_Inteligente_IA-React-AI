@@ -8,6 +8,16 @@ const { google } = require("googleapis");
 
 const app = express();
 
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+
+const SECRET = "ultra_secreto_123";
+const User = require("./models/User");
+
+const Reply = require("./models/Reply");
+
+const Usage = require("./models/Usage");
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
@@ -148,21 +158,51 @@ app.get("/emails", async (req, res) => {
 // IA SERVICE
 // ==========================
 
-app.post("/generate-reply", async (req, res) => {
+const auth = require("./middleware/auth");
+
+function getToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+
+app.post("/generate-reply", auth, async (req, res) => {
   try {
 
     const { emailText, from } = req.body;
 
+    const user = await User.findById(req.userId);
+    const today = getToday();
+
+    let usage = await Usage.findOne({
+      userId: req.userId,
+      date: today
+    });
+
+    if (!usage) {
+      usage = await Usage.create({
+        userId: req.userId,
+        date: today,
+        count: 0
+      });
+    }
+
+    // 🚫 LIMITE PLAN FREE
+    if (user.plan === "free" && usage.count >= 5) {
+      return res.json({
+        reply: "🚫 Has alcanzado el límite diario del plan gratuito"
+      });
+    }
+
     // FILTRO POR REMITENTE
     if (
       from &&
-  (
-      from.toLowerCase().includes("facebook") ||
-      from.toLowerCase().includes("no-reply") ||
-      from.toLowerCase().includes("notification") ||
-      from.toLowerCase().includes("noreply") ||
-      from.toLowerCase().includes("newsletter")
-    )
+      (
+        from.toLowerCase().includes("facebook") ||
+        from.toLowerCase().includes("no-reply") ||
+        from.toLowerCase().includes("notification") ||
+        from.toLowerCase().includes("noreply") ||
+        from.toLowerCase().includes("newsletter")
+      )
     ) {
       return res.json({
         reply: "Este correo es automático. No se recomienda responder."
@@ -180,6 +220,21 @@ app.post("/generate-reply", async (req, res) => {
 
     const reply = await generateReply(cleanedEmail);
 
+    // 🔢 AUMENTAR USO SI ES FREE
+    if (user.plan === "free") {
+      usage.count += 1;
+      await usage.save();
+    }
+
+    // 💾 GUARDAR HISTORIAL
+    await Reply.create({
+      userId: req.userId,
+      emailFrom: from,
+      emailSubject: "",
+      emailBody: cleanedEmail,
+      aiReply: reply
+    });
+
     res.json({ reply });
 
   } catch (err) {
@@ -190,11 +245,48 @@ app.post("/generate-reply", async (req, res) => {
 
 
 // ==========================
-// PUERTO
+// Registro de usuarios
 // ==========================
 
-const PORT = process.env.PORT || 4000;
+app.post("/register", async (req, res) => {
+  const { email, password } = req.body;
 
-app.listen(PORT, () => {
-  console.log(`Backend corriendo en http://localhost:${PORT}`);
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const newUser = new User({
+    email,
+    password: hashedPassword
+  });
+
+  await newUser.save();
+
+  res.json({ message: "Usuario registrado" });
+});
+
+// ==========================
+// Login de usuarios
+// ==========================
+
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(400).json({ message: "Usuario no existe" });
+  }
+
+  const valid = await bcrypt.compare(password, user.password);
+
+  if (!valid) {
+    return res.status(400).json({ message: "Password incorrecta" });
+  }
+
+  const token = jwt.sign(
+    { userId: user._id },
+    SECRET,
+    { expiresIn: "1h" }
+  );
+
+  res.json({ token });
 });
