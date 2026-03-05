@@ -1,10 +1,12 @@
+require("dotenv").config();
+
 const { generateReply } = require("./services/ai");
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
 
 const { authorize } = require("./services/gmail");
 const { google } = require("googleapis");
+const { generateAuthUrl, getTokens } = require("./auth/googleAuth");
 
 const app = express();
 
@@ -19,6 +21,38 @@ const Reply = require("./models/Reply");
 const Usage = require("./models/Usage");
 
 require("./jobs/resetUsage");
+
+const mongoose = require("mongoose");
+
+mongoose.connect(process.env.MONGO_URI)
+.then(() => {
+  console.log("MongoDB conectado 🧠");
+})
+.catch(err => {
+  console.error("Error conectando MongoDB:", err);
+});
+
+app.get("/auth/google", (req, res) => {
+  const url = generateAuthUrl();
+  res.send(url);
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  const { code } = req.query;
+
+  console.log("QUERY:", req.query);
+  console.log("CODE:", code);
+
+if (!code) {
+  return res.send("No llegó ningún code 👀");
+}
+
+  const tokens = await getTokens(code);
+
+  console.log("REFRESH TOKEN:", tokens.refresh_token);
+
+  res.send("Revisa tu consola");
+});
 
 // Middlewares
 app.use(cors());
@@ -104,8 +138,17 @@ app.get("/test-gmail", async (req, res) => {
 // Obtener últimos correos
 app.get("/emails", async (req, res) => {
   try {
-    const auth = await authorize();
-    const gmail = google.gmail({ version: "v1", auth });
+    const oAuth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+
+    oAuth2Client.setCredentials({
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+    });
+
+    const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
     const list = await gmail.users.messages.list({
       userId: "me",
@@ -129,9 +172,10 @@ app.get("/emails", async (req, res) => {
         const part = parts.find(p => p.mimeType === "text/plain");
 
         if (part && part.body.data) {
-          body = decodeBase64(
-            part.body.data.replace(/-/g, '+').replace(/_/g, '/')
-          );
+          body = Buffer.from(
+            part.body.data.replace(/-/g, "+").replace(/_/g, "/"),
+            "base64"
+          ).toString("utf-8");
         }
       }
 
@@ -151,7 +195,7 @@ app.get("/emails", async (req, res) => {
     res.json(fullMessages);
 
   } catch (err) {
-    console.error(err);
+    console.error("ERROR REAL:", err);
     res.status(500).send("Error leyendo correos");
   }
 });
@@ -291,4 +335,10 @@ app.post("/login", async (req, res) => {
   );
 
   res.json({ token });
+});
+
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log(`Backend corriendo en http://localhost:${PORT}`);
 });

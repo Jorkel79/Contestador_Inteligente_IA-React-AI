@@ -5,8 +5,15 @@ function App() {
   const [email, setEmail] = useState(null);
   const [reply, setReply] = useState("");
 
-  const getLatestEmail = async () => {
+ const getLatestEmail = async () => {
+  try {
     const res = await fetch("http://localhost:4000/emails");
+
+    if (!res.ok) {
+      alert("Error en el backend 😬");
+      return;
+    }
+
     const data = await res.json();
 
     if (data.length > 0) {
@@ -15,23 +22,46 @@ function App() {
         from: data[0].from,
         subject: data[0].subject
       });
+    } else {
+      alert("No hay correos");
     }
-  };
+
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo conectar al backend");
+  }
+};
 
 const generateReply = async () => {
-  const res = await fetch("http://localhost:4000/generate-reply", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      emailText: email.body,
-      from: email.from
-    })
-  });
+  if (!email?.body) {
+    alert("Primero trae un correo 📬");
+    return;
+  }
 
-  const data = await res.json();
-  setReply(data.reply);
+  try {
+    const res = await fetch("http://localhost:4000/generate-reply", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        emailText: email.body,
+        from: email.from
+      })
+    });
+
+    if (!res.ok) {
+      alert("Error generando respuesta 😬");
+      return;
+    }
+
+    const data = await res.json();
+    setReply(data.reply);
+
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo conectar al backend");
+  }
 };
 
 
