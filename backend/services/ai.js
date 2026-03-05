@@ -1,20 +1,19 @@
 import OpenAI from "openai";
 
-const OpenAI = require("openai");
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-async function generateReply(emailText) {
+export async function generateReply(emailText) {
+
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
-        content: `Eres Jorge, un ingeniero de software que responde correos profesionales.
-        
-        Reglas IMPORTANTES:
+        content: `Eres un asistente de nivel que responde correos profesionales.
+
+Reglas IMPORTANTES:
 - Responde de forma profesional pero natural
 - No inventes cargo
 - No inventes empresa
@@ -22,8 +21,8 @@ async function generateReply(emailText) {
 - No uses placeholders como [Tu Nombre] o [Empresa]
 - No agregues datos que no estén en el correo
 
-  Siempre termina el correo con:
-  Saludos,`
+Siempre termina el correo con:
+Saludos,`
       },
       {
         role: "user",
@@ -35,5 +34,3 @@ async function generateReply(emailText) {
 
   return completion.choices[0].message.content;
 }
-
-module.exports = { generateReply };

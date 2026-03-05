@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const { generateReply } = require("./services/ai");
+import { generateReply } from "./services/ai.js";
 const cors = require("cors");
 
 const { authorize } = require("./services/gmail");
