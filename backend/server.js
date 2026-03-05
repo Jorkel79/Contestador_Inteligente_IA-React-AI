@@ -1,7 +1,6 @@
 require("dotenv").config();
-
-const { generateReply } = require("./services/ai");
 const express = require("express");
+const { generateReply } = require("./services/ai");
 const cors = require("cors");
 
 const { authorize } = require("./services/gmail");
@@ -211,81 +210,25 @@ function getToday() {
 }
 
 
-app.post("/generate-reply", auth, async (req, res) => {
+app.post("/generate-reply", async (req, res) => {
   try {
 
     const { emailText, from } = req.body;
-
-    const user = await User.findById(req.userId);
-    const today = getToday();
-
-    let usage = await Usage.findOne({
-      userId: req.userId,
-      date: today
-    });
-
-    if (!usage) {
-      usage = await Usage.create({
-        userId: req.userId,
-        date: today,
-        count: 0
-      });
-    }
-
-    // 🚫 LIMITE PLAN FREE
-    if (user.plan === "free" && usage.count >= 5) {
-      return res.json({
-        reply: "🚫 Has alcanzado el límite diario del plan gratuito"
-      });
-    }
-
-    // FILTRO POR REMITENTE
-    if (
-      from &&
-      (
-        from.toLowerCase().includes("facebook") ||
-        from.toLowerCase().includes("no-reply") ||
-        from.toLowerCase().includes("notification") ||
-        from.toLowerCase().includes("noreply") ||
-        from.toLowerCase().includes("newsletter")
-      )
-    ) {
-      return res.json({
-        reply: "Este correo es automático. No se recomienda responder."
-      });
-    }
-
-    // FILTRO POR CONTENIDO
-    if (isNewsletter(emailText)) {
-      return res.json({
-        reply: "Este correo parece promocional o automático."
-      });
-    }
 
     const cleanedEmail = cleanEmail(emailText);
 
     const reply = await generateReply(cleanedEmail);
 
-    // 🔢 AUMENTAR USO SI ES FREE
-    if (user.plan === "free") {
-      usage.count += 1;
-      await usage.save();
-    }
-
-    // 💾 GUARDAR HISTORIAL
-    await Reply.create({
-      userId: req.userId,
-      emailFrom: from,
-      emailSubject: "",
-      emailBody: cleanedEmail,
-      aiReply: reply
-    });
-
     res.json({ reply });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error generando respuesta");
+  } catch (error) {
+
+    console.error("ERROR GENERANDO RESPUESTA:", error);
+
+    res.status(500).json({
+      error: "Error generando respuesta"
+    });
+
   }
 });
 
@@ -295,18 +238,23 @@ app.post("/generate-reply", auth, async (req, res) => {
 // ==========================
 
 app.post("/register", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  const newUser = new User({
-    email,
-    password: hashedPassword
-  });
+    const newUser = new User({
+      email,
+      password: hashedPassword
+    });
 
-  await newUser.save();
+    await newUser.save();
 
-  res.json({ message: "Usuario registrado" });
+    res.json({ message: "Usuario registrado" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error registrando usuario");
+  }
 });
 
 // ==========================
