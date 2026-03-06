@@ -1,27 +1,31 @@
-require("dotenv").config();
-const express = require("express");
-import { generateReply } from "./services/ai.js";
-const cors = require("cors");
+import dotenv from "dotenv";
+dotenv.config();
 
-const { authorize } = require("./services/gmail");
-const { google } = require("googleapis");
-const { generateAuthUrl, getTokens } = require("./auth/googleAuth");
+import express from "express";
+import cors from "cors";
+
+import { generateReply } from "./services/ai.js";
+
+import { authorize } from "./services/gmail.js";
+import { google } from "googleapis";
+import { generateAuthUrl, getTokens } from "./auth/googleAuth.js";
+
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+
+import mongoose from "mongoose";
+
+import User from "./models/User.js";
+import Reply from "./models/Reply.js";
+import Usage from "./models/Usage.js";
+
+import auth from "./middleware/auth.js";
+
+import "./jobs/resetUsage.js";
 
 const app = express();
 
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-
 const SECRET = "ultra_secreto_123";
-const User = require("./models/User");
-
-const Reply = require("./models/Reply");
-
-const Usage = require("./models/Usage");
-
-require("./jobs/resetUsage");
-
-const mongoose = require("mongoose");
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
@@ -203,7 +207,6 @@ app.get("/emails", async (req, res) => {
 // IA SERVICE
 // ==========================
 
-const auth = require("./middleware/auth");
 
 function getToday() {
   return new Date().toISOString().slice(0, 10);

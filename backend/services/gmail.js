@@ -1,7 +1,11 @@
-const { google } = require("googleapis");
-const fs = require("fs");
-const path = require("path");
-const readline = require("readline");
+import { google } from "googleapis";
+import fs from "fs";
+import path from "path";
+import readline from "readline";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SCOPES = ["https://www.googleapis.com/auth/gmail.modify"];
 const TOKEN_PATH = path.join(__dirname, "../token.json");
@@ -19,16 +23,16 @@ function getAuthClient() {
   );
 }
 
-async function authorize() {
+export async function authorize() {
   const auth = getAuthClient();
 
-  // si ya hay token guardado
+  // Si ya hay token guardado
   if (fs.existsSync(TOKEN_PATH)) {
     auth.setCredentials(JSON.parse(fs.readFileSync(TOKEN_PATH)));
     return auth;
   }
 
-  // generar URL correcta OAuth
+  // Generar URL OAuth
   const authUrl = auth.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
@@ -52,10 +56,10 @@ async function authorize() {
 
   const { tokens } = await auth.getToken(code);
   auth.setCredentials(tokens);
+
   fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
 
   console.log("✅ Token guardado");
+
   return auth;
 }
-
-module.exports = { authorize };

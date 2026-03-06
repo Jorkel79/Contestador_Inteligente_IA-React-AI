@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const replySchema = new mongoose.Schema({
   userId: {
@@ -15,4 +15,6 @@ const replySchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model("Reply", replySchema);
+const Reply = mongoose.model("Reply", replySchema);
+
+export default Reply;
