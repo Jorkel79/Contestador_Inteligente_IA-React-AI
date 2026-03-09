@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import mongoose from "mongoose";
 
 import { generateReply } from "./services/ai.js";
 
@@ -12,8 +13,6 @@ import { generateAuthUrl, getTokens } from "./auth/googleAuth.js";
 
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-
-import mongoose from "mongoose";
 
 import User from "./models/User.js";
 import Reply from "./models/Reply.js";
@@ -26,6 +25,10 @@ import "./jobs/resetUsage.js";
 const app = express();
 
 const SECRET = "ultra_secreto_123";
+
+console.log("OPENAI KEY:", process.env.OPENAI_API_KEY?.slice(0,15));
+console.log("KEY:", process.env.OPENAI_API_KEY);
+console.log("KEY:", process.env.OPENAI_API_KEY);
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {

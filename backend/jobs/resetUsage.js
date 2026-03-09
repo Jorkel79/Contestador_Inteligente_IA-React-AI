@@ -1,14 +1,18 @@
-const cron = require("node-cron");
-const Usage = require("../models/Usage");
+import cron from "node-cron";
+import Usage from "../models/Usage.js";
 
-// Corre todos los días a medianoche
 cron.schedule("0 0 * * *", async () => {
-  console.log("⏳ Reseteando uso diario...");
-
   try {
-    await Usage.updateMany({}, { count: 0 });
-    console.log("✅ Uso diario reseteado");
-  } catch (err) {
-    console.error("❌ Error reseteando uso:", err);
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    await Usage.deleteMany({
+      date: { $lt: today }
+    });
+
+    console.log("🧹 Uso diario reseteado");
+
+  } catch (error) {
+    console.error("Error reseteando usage:", error);
   }
 });
