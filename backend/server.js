@@ -1,5 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 
 import express from "express";
 import cors from "cors";
@@ -27,7 +26,6 @@ const app = express();
 const SECRET = "ultra_secreto_123";
 
 console.log("OPENAI KEY:", process.env.OPENAI_API_KEY?.slice(0,15));
-console.log("KEY:", process.env.OPENAI_API_KEY);
 console.log("KEY:", process.env.OPENAI_API_KEY);
 
 mongoose.connect(process.env.MONGO_URI)
