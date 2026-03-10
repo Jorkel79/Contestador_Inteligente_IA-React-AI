@@ -3,6 +3,7 @@ import { useState } from "react";
 function App() {
 
   const [email, setEmail] = useState(null);
+  const [emailText, setEmailText] = useState("");
   const [reply, setReply] = useState("");
 
  const getLatestEmail = async () => {
@@ -18,10 +19,12 @@ function App() {
 
     if (data.length > 0) {
       setEmail({
-        body: data[0].body,
-        from: data[0].from,
-        subject: data[0].subject
-      });
+  body: data[0].body,
+  from: data[0].from,
+  subject: data[0].subject
+});
+
+setEmailText(data[0].body);
     } else {
       alert("No hay correos");
     }
@@ -33,7 +36,7 @@ function App() {
 };
 
 const generateReply = async () => {
-  if (!email?.body) {
+  if (!emailText) {
     alert("Primero trae un correo 📬");
     return;
   }
@@ -45,7 +48,7 @@ const generateReply = async () => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        emailText: email.body,
+        emailText: emailText,
         from: email.from
       })
     });
@@ -73,14 +76,24 @@ const generateReply = async () => {
         Traer último correo 📬
       </button>
 
-      <br /><br />
 
-      <textarea
-        rows="6"
-        cols="60"
-        value={email ? email.body : ""}
-        readOnly
-      />
+      <br />
+      
+    <button onClick={() => setEmailText("")}>
+        Limpiar
+      </button>
+
+      <br />
+
+      <p>Pega un correo o trae el último:</p>
+
+
+     <textarea
+  rows="6"
+  cols="60"
+  value={emailText}
+  onChange={(e) => setEmailText(e.target.value)}
+/>
 
       <br /><br />
 
